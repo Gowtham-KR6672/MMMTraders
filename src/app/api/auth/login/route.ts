@@ -32,7 +32,11 @@ export async function POST(request: Request) {
         expiresIn: jwtExpiry,
       });
 
-      const response = NextResponse.json({ message: 'Login successful', user: { id: user._id, name: user.name, email: user.email, role: user.role } }, { status: 200 });
+      const response = NextResponse.json({
+        message: 'Login successful',
+        token, // Return token so client can store in localStorage for PWA
+        user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      }, { status: 200 });
 
       response.cookies.set('token', token, {
         httpOnly: true,
@@ -62,7 +66,11 @@ export async function POST(request: Request) {
         expiresIn: jwtExpiry,
       });
 
-      const response = NextResponse.json({ message: 'Customer login successful', user: { id: customer._id, name: customer.name, role: 'customer' } }, { status: 200 });
+      const response = NextResponse.json({
+        message: 'Customer login successful',
+        token, // Return token so client can store in localStorage for PWA
+        user: { id: customer._id, name: customer.name, role: 'customer' }
+      }, { status: 200 });
 
       response.cookies.set('token', token, {
         httpOnly: true,

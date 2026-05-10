@@ -5,10 +5,19 @@ import { cookies } from 'next/headers';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // 1. Try httpOnly cookie first (standard browser sessions)
     const cookieStore = await cookies();
-    const token = cookieStore.get('token')?.value;
+    let token = cookieStore.get('token')?.value;
+
+    // 2. Fall back to Authorization header (iOS PWA / localStorage sessions)
+    if (!token) {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.slice(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

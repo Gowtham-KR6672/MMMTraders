@@ -22,6 +22,12 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await axios.post('/api/auth/login', { email, password, rememberMe });
+      
+      // Store token in localStorage for PWA persistence (iOS clears cookies on app close)
+      if (res.data.token) {
+        localStorage.setItem('mmm_auth_token', res.data.token);
+      }
+      
       toast.success('Login successful');
       if (res.data.user?.role === 'customer') {
         router.push('/portal');

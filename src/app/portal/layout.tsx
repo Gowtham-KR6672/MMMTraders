@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import NotificationSetup from '@/components/NotificationSetup';
+import axiosClient from '@/lib/axiosClient';
 
 export default function PortalLayout({
   children,
@@ -21,23 +22,18 @@ export default function PortalLayout({
 
   // Auth guard — redirect to login if no valid session
   useEffect(() => {
-    fetch('/api/auth/me')
+    axiosClient.get('/api/auth/me')
       .then((res) => {
-        if (!res.ok) {
-          router.replace('/login');
-        } else {
-          return res.json();
-        }
-      })
-      .then((data) => {
-        if (data?.user?.role !== 'customer') {
-          // Admins should be in the dashboard, not the portal
+        if (res.data?.user?.role !== 'customer') {
           router.replace('/dashboard');
         } else {
           setAuthChecked(true);
         }
       })
-      .catch(() => router.replace('/login'));
+      .catch(() => {
+        localStorage.removeItem('mmm_auth_token');
+        router.replace('/login');
+      });
   }, []);
 
   useEffect(() => {
@@ -118,7 +114,8 @@ export default function PortalLayout({
             variant="ghost" 
             className="w-full justify-start text-slate-500 hover:text-red-600 hover:bg-red-50 gap-4 rounded-2xl px-4 py-6 transition-colors" 
             onClick={() => {
-              document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+              document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
+              localStorage.removeItem('mmm_auth_token');
               router.push('/login');
             }}
           >

@@ -68,6 +68,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
           className="w-full justify-start text-slate-500 hover:text-red-600 hover:bg-red-50 gap-4 rounded-2xl px-4 py-6 transition-colors" 
           onClick={() => {
             document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            localStorage.removeItem('mmm_auth_token');
             window.location.href = '/login';
           }}
         >

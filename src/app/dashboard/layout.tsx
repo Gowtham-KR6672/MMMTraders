@@ -6,6 +6,7 @@ import Sidebar from '@/components/Layout/Sidebar';
 import { Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import NotificationSetup from '@/components/NotificationSetup';
+import axiosClient from '@/lib/axiosClient';
 
 export default function DashboardLayout({
   children,
@@ -19,23 +20,18 @@ export default function DashboardLayout({
 
   // Auth guard — redirect to login if no valid session
   useEffect(() => {
-    fetch('/api/auth/me')
+    axiosClient.get('/api/auth/me')
       .then((res) => {
-        if (!res.ok) {
-          router.replace('/login');
-        } else {
-          return res.json();
-        }
-      })
-      .then((data) => {
-        if (data?.user?.role === 'customer') {
-          // Customers should be in the portal, not the dashboard
+        if (res.data?.user?.role === 'customer') {
           router.replace('/portal');
         } else {
           setAuthChecked(true);
         }
       })
-      .catch(() => router.replace('/login'));
+      .catch(() => {
+        localStorage.removeItem('mmm_auth_token');
+        router.replace('/login');
+      });
   }, []);
 
   // Close sidebar on navigation on mobile

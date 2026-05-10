@@ -15,8 +15,30 @@ export default function PortalLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Auth guard — redirect to login if no valid session
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (!res.ok) {
+          router.replace('/login');
+        } else {
+          return res.json();
+        }
+      })
+      .then((data) => {
+        if (data?.user?.role !== 'customer') {
+          // Admins should be in the dashboard, not the portal
+          router.replace('/dashboard');
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch(() => router.replace('/login'));
+  }, []);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -27,6 +49,17 @@ export default function PortalLayout({
     { name: 'My Bills', href: '/portal/bills', icon: FileText },
     { name: 'Place Order', href: '/portal/order', icon: ShoppingBag },
   ];
+
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#FFF9F5]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 text-sm font-medium">Loading your portal...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FFF9F5] selection:bg-orange-500/30">

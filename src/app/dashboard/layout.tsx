@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Layout/Sidebar';
 import { Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -12,12 +13,47 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Auth guard — redirect to login if no valid session
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (!res.ok) {
+          router.replace('/login');
+        } else {
+          return res.json();
+        }
+      })
+      .then((data) => {
+        if (data?.user?.role === 'customer') {
+          // Customers should be in the portal, not the dashboard
+          router.replace('/portal');
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch(() => router.replace('/login'));
+  }, []);
 
   // Close sidebar on navigation on mobile
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
+
+  // While auth is being checked, show a full-page loader
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#FFF9F5]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 text-sm font-medium">Loading MMM Traders...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FFF9F5] selection:bg-orange-500/30">

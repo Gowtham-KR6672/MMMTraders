@@ -66,7 +66,11 @@ export async function GET() {
       monthlyAnalytics
     }, { status: 200 });
   } catch (error: any) {
-    console.error('Dashboard API Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Dashboard API Error:', error?.message || error);
+    console.error('Stack:', error?.stack);
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      detail: error?.message || 'Unknown error'
+    }, { status: 500 });
   }
 }

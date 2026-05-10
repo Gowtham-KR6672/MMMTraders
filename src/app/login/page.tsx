@@ -1,42 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import axios from 'axios';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true); // Default ON
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { login, isAuthenticated, user } = useAuth();
+
+  // If already logged in, redirect
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'customer') {
+        router.push('/portal');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('/api/auth/login', { email, password, rememberMe });
-      
-      // Store token in localStorage for PWA persistence (iOS clears cookies on app close)
-      if (res.data.token) {
-        localStorage.setItem('mmm_auth_token', res.data.token);
-      }
-      
+      await login(email, password, rememberMe);
       toast.success('Login successful');
-      if (res.data.user?.role === 'customer') {
-        router.push('/portal');
-      } else {
-        router.push('/dashboard');
-      }
+
+      // Redirect will happen via useEffect when isAuthenticated changes
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Login failed');
-    } finally {
       setLoading(false);
     }
   };

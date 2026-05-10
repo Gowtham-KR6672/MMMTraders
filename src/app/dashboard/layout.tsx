@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Users, ShoppingCart, IndianRupee,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import NotificationSetup from '@/components/NotificationSetup';
-import axiosClient from '@/lib/axiosClient';
+import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { name: 'Dashboard',       href: '/dashboard',          icon: LayoutDashboard },
@@ -23,36 +23,20 @@ const navItems = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [authChecked, setAuthChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
-
-  useEffect(() => {
-    axiosClient.get('/api/auth/me')
-      .then((res) => {
-        if (res.data?.user?.role === 'customer') {
-          router.replace('/portal');
-        } else {
-          setAuthChecked(true);
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem('mmm_auth_token');
-        router.replace('/login');
-      });
-  }, []);
+  const { isLoading, isAuthenticated, user, logout } = useAuth();
 
   // Close menu on navigation
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
-  const handleLogout = () => {
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    localStorage.removeItem('mmm_auth_token');
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await logout();
+    }
   };
 
-  if (!authChecked) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#FFF9F5]">
         <div className="flex flex-col items-center gap-4">

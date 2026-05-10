@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import NotificationSetup from '@/components/NotificationSetup';
-import axiosClient from '@/lib/axiosClient';
+import { useAuth } from '@/context/AuthContext';
 
 export default function PortalLayout({
   children,
@@ -16,25 +16,9 @@ export default function PortalLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
+  const { isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
-
-  // Auth guard — redirect to login if no valid session
-  useEffect(() => {
-    axiosClient.get('/api/auth/me')
-      .then((res) => {
-        if (res.data?.user?.role !== 'customer') {
-          router.replace('/dashboard');
-        } else {
-          setAuthChecked(true);
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem('mmm_auth_token');
-        router.replace('/login');
-      });
-  }, []);
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -46,13 +30,13 @@ export default function PortalLayout({
     { name: 'Order',     href: '/portal/order', icon: ShoppingBag },
   ];
 
-  const handleLogout = () => {
-    document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
-    localStorage.removeItem('mmm_auth_token');
-    router.push('/login');
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await logout();
+    }
   };
 
-  if (!authChecked) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#FFF9F5]">
         <div className="flex flex-col items-center gap-4">

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Outfit } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
+import { ErrorBoundary, NetworkStatusIndicator } from '@/components/ErrorBoundary';
+import { AuthProvider } from '@/context/AuthContext';
 
 const outfit = Outfit({ subsets: ['latin'] });
 
@@ -44,8 +46,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body suppressHydrationWarning className={`${outfit.className} bg-[#FFF9F5] text-slate-800 selection:bg-orange-500/30`}>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          <ErrorBoundary>
+            <NetworkStatusIndicator />
+            {children}
+            <Toaster />
+          </ErrorBoundary>
+        </AuthProvider>
       </body>
     </html>
   );

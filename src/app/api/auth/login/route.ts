@@ -9,7 +9,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const { email, password, rememberMe = true } = await request.json();
+    // Cookie lifetime: 90 days if Remember Me, else 1 day
+    const cookieMaxAge = rememberMe ? 90 * 24 * 60 * 60 : 24 * 60 * 60;
+    const jwtExpiry = rememberMe ? '90d' : '1d';
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email/Phone and password are required' }, { status: 400 });
@@ -26,17 +29,16 @@ export async function POST(request: Request) {
       }
 
       const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, JWT_SECRET, {
-        expiresIn: '7d',
+        expiresIn: jwtExpiry,
       });
 
       const response = NextResponse.json({ message: 'Login successful', user: { id: user._id, name: user.name, email: user.email, role: user.role } }, { status: 200 });
 
-      // Set cookie
       response.cookies.set('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 days
+        maxAge: cookieMaxAge,
         path: '/',
       });
 
@@ -57,17 +59,16 @@ export async function POST(request: Request) {
 
       // Issue customer token
       const token = jwt.sign({ id: customer._id, email: customer.email, phone: customer.phone, role: 'customer' }, JWT_SECRET, {
-        expiresIn: '7d',
+        expiresIn: jwtExpiry,
       });
 
       const response = NextResponse.json({ message: 'Customer login successful', user: { id: customer._id, name: customer.name, role: 'customer' } }, { status: 200 });
 
-      // Set cookie
       response.cookies.set('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60, // 7 days
+        maxAge: cookieMaxAge,
         path: '/',
       });
 

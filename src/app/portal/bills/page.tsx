@@ -6,17 +6,20 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CustomerBillsPage() {
-  const [sales, setSales] = useState([]);
+  const [sales, setSales] = useState<any[]>([]);
+  const [customerInfo, setCustomerInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const fetchMyBills = async () => {
     try {
       const meRes = await axios.get('/api/auth/me');
       const customerId = meRes.data.user.id;
+      setCustomerInfo(meRes.data.user);
       const salesRes = await axios.get(`/api/sales?customerId=${customerId}`);
       const mySales = salesRes.data.filter((s: any) => s.customer && s.customer._id === customerId);
       setSales(mySales);
@@ -40,9 +43,195 @@ export default function CustomerBillsPage() {
     return 'bg-red-500/10 text-red-600 border-red-200';
   };
 
-  const downloadInvoice = (invoiceNumber: string) => {
-    // Placeholder for actual PDF generation logic
-    toast.success(`Downloading invoice ${invoiceNumber}...`);
+  const downloadInvoice = async (sale: any) => {
+    setDownloadingId(sale._id);
+    try {
+      // Dynamically import jsPDF to avoid SSR issues
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // ── Header background ──────────────────────────────────────────────────
+      doc.setFillColor(249, 115, 22); // orange-500
+      doc.rect(0, 0, pageWidth, 42, 'F');
+
+      // ── Logo (fetch & embed) ───────────────────────────────────────────────
+      let logoBase64: string | null = null;
+      try {
+        const logoRes = await fetch('/logo.png');
+        const logoBlob = await logoRes.blob();
+        logoBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(logoBlob);
+        });
+      } catch {
+        // If logo fails to load, continue without it
+      }
+
+      if (logoBase64) {
+        // White rounded box behind the logo
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(9, 5, 32, 32, 3, 3, 'F');
+        // Image fills the box exactly — no white border visible
+        doc.addImage(logoBase64, 'PNG', 9, 5, 32, 32);
+      }
+
+      // ── Company Name (shifted right if logo is present) ────────────────────
+      const textStartX = logoBase64 ? 46 : 14;
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MMM TRADERS', textStartX, 17);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Thamaraipalayam, Unjalur Vazhi', textStartX, 25);
+      doc.text('Manojmuruganm66@gmail.com  |  9787168804', textStartX, 32);
+
+      // ── INVOICE label (top right) ──────────────────────────────────────────
+      doc.setFontSize(26);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('INVOICE', pageWidth - 14, 22, { align: 'right' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(sale.invoiceNumber, pageWidth - 14, 31, { align: 'right' });
+
+
+      // ── Reset text color ───────────────────────────────────────────────────
+      doc.setTextColor(30, 41, 59); // slate-800
+
+      // ── Invoice meta info block ────────────────────────────────────────────
+      const infoY = 50;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BILL TO', 14, infoY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      
+      const customerName = sale.customer?.name || customerInfo?.name || 'Customer';
+      const customerPhone = sale.customer?.phone || '';
+      const customerEmail = sale.customer?.email || '';
+      
+      doc.text(customerName, 14, infoY + 6);
+      if (customerPhone) doc.text(`Phone: ${customerPhone}`, 14, infoY + 12);
+      if (customerEmail) doc.text(`Email: ${customerEmail}`, 14, infoY + 18);
+
+      // Right side invoice details
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      const detailX = pageWidth / 2 + 10;
+      doc.text('Invoice Number:', detailX, infoY);
+      doc.text('Invoice Date:', detailX, infoY + 8);
+      doc.text('Payment Status:', detailX, infoY + 16);
+      doc.text('Due Amount:', detailX, infoY + 24);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(sale.invoiceNumber, pageWidth - 14, infoY, { align: 'right' });
+      doc.text(new Date(sale.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }), pageWidth - 14, infoY + 8, { align: 'right' });
+      doc.text(sale.paymentStatus, pageWidth - 14, infoY + 16, { align: 'right' });
+      
+      const balanceColor = sale.balanceAmount > 0 ? [220, 38, 38] : [22, 163, 74];
+      doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Rs. ${sale.balanceAmount?.toLocaleString('en-IN') || '0'}`, pageWidth - 14, infoY + 24, { align: 'right' });
+      doc.setTextColor(30, 41, 59);
+
+      // ── Divider ────────────────────────────────────────────────────────────
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.line(14, infoY + 32, pageWidth - 14, infoY + 32);
+
+      // ── Items Table ────────────────────────────────────────────────────────
+      autoTable(doc, {
+        startY: infoY + 38,
+        head: [['#', 'Product / Description', 'Qty', 'Unit Price (Rs.)', 'Total (Rs.)']],
+        body: [
+          [
+            '1',
+            sale.productName,
+            sale.quantity?.toString(),
+            `Rs. ${sale.unitPrice?.toLocaleString('en-IN')}`,
+            `Rs. ${sale.totalAmount?.toLocaleString('en-IN')}`,
+          ],
+        ],
+        headStyles: {
+          fillColor: [249, 115, 22],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        bodyStyles: { fontSize: 9, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [255, 247, 237] },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 20, halign: 'center' },
+          3: { cellWidth: 35, halign: 'right' },
+          4: { cellWidth: 35, halign: 'right' },
+        },
+        margin: { left: 14, right: 14 },
+        theme: 'striped',
+      });
+
+      // ── Totals block ───────────────────────────────────────────────────────
+      const finalY = (doc as any).lastAutoTable.finalY + 8;
+      const totalsX = pageWidth - 90;
+
+      // Background box for totals
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(totalsX - 4, finalY - 4, 90 - 14 + 4 + 4, 42, 3, 3, 'F');
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Subtotal:', totalsX, finalY + 4);
+      doc.text('GST / Tax:', totalsX, finalY + 12);
+      doc.text('Amount Paid:', totalsX, finalY + 20);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Rs. ${sale.totalAmount?.toLocaleString('en-IN')}`, pageWidth - 14, finalY + 4, { align: 'right' });
+      doc.text(`Rs. ${sale.gstTax?.toLocaleString('en-IN') || '0'}`, pageWidth - 14, finalY + 12, { align: 'right' });
+      doc.text(`Rs. ${sale.amountPaid?.toLocaleString('en-IN') || '0'}`, pageWidth - 14, finalY + 20, { align: 'right' });
+
+      // Balance due (highlighted)
+      doc.setDrawColor(229, 231, 235);
+      doc.line(totalsX - 4, finalY + 25, pageWidth - 14, finalY + 25);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('Balance Due:', totalsX, finalY + 33);
+
+      const balAmt = sale.balanceAmount || 0;
+      doc.setTextColor(balAmt > 0 ? 220 : 22, balAmt > 0 ? 38 : 163, balAmt > 0 ? 38 : 74);
+      doc.text(`Rs. ${balAmt.toLocaleString('en-IN')}`, pageWidth - 14, finalY + 33, { align: 'right' });
+
+      // ── Footer ─────────────────────────────────────────────────────────────
+      doc.setFillColor(249, 250, 251);
+      doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Thank you for your business with MMM Traders!', pageWidth / 2, pageHeight - 12, { align: 'center' });
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-IN')} | ${sale.invoiceNumber}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+
+      // ── Save PDF ───────────────────────────────────────────────────────────
+      doc.save(`Invoice-${sale.invoiceNumber}.pdf`);
+      toast.success(`Invoice ${sale.invoiceNumber} downloaded!`);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -54,7 +243,7 @@ export default function CustomerBillsPage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-slate-800">My Bills & Invoices</h2>
-            <p className="text-sm text-slate-500 mt-1">View your purchase history and pending balances</p>
+            <p className="text-sm text-slate-500 mt-1">View your purchase history and download PDF invoices</p>
           </div>
         </div>
       </div>
@@ -91,7 +280,7 @@ export default function CustomerBillsPage() {
                 sales.map((sale: any) => (
                   <TableRow key={sale._id} className="hover:bg-indigo-50/30 transition-colors border-b-slate-100">
                     <TableCell className="font-medium text-slate-800">{sale.invoiceNumber}</TableCell>
-                    <TableCell className="text-slate-600">{new Date(sale.date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-slate-600">{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
                     <TableCell>
                       <div className="font-medium text-slate-700">{sale.productName}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{sale.quantity} x ₹{sale.unitPrice}</div>
@@ -102,23 +291,28 @@ export default function CustomerBillsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-bold text-slate-800">
-                      ₹{sale.totalAmount?.toLocaleString()}
+                      ₹{sale.totalAmount?.toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell className="text-right">
                       {sale.balanceAmount > 0 ? (
-                        <span className="font-bold text-red-600">₹{sale.balanceAmount.toLocaleString()}</span>
+                        <span className="font-bold text-red-600">₹{sale.balanceAmount.toLocaleString('en-IN')}</span>
                       ) : (
-                        <span className="text-slate-400 font-medium">₹0</span>
+                        <span className="text-emerald-600 font-semibold">Paid ✓</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => downloadInvoice(sale.invoiceNumber)}
-                        className="rounded-xl border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadInvoice(sale)}
+                        disabled={downloadingId === sale._id}
+                        className="rounded-xl border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 min-w-[80px]"
                       >
-                        <Download size={16} className="mr-1" /> PDF
+                        {downloadingId === sale._id ? (
+                          <><Loader2 size={14} className="mr-1 animate-spin" /> Wait</>
+                        ) : (
+                          <><Download size={14} className="mr-1" /> PDF</>
+                        )}
                       </Button>
                     </TableCell>
                   </TableRow>

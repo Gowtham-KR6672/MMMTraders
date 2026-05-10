@@ -28,9 +28,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Check if user is already authenticated on mount
+  // Check if user is already authenticated on mount (runs before rendering)
   useEffect(() => {
-    checkAuth();
+    // Run immediately to prevent UI flash
+    const checkAuthImmediately = async () => {
+      try {
+        const token = localStorage.getItem('mmm_auth_token');
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await axiosClient.get<{ user: User }>('/api/auth/me');
+        setUser(response.data.user);
+      } catch (error) {
+        localStorage.removeItem('mmm_auth_token');
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuthImmediately();
   }, []);
 
   const checkAuth = async () => {

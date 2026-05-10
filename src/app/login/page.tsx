@@ -16,18 +16,19 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, isLoading, user } = useAuth();
 
-  // If already logged in, redirect
+  // If already logged in, redirect immediately without showing page
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!isLoading && isAuthenticated && user) {
+      // Use replace to not add to history
       if (user.role === 'customer') {
-        router.push('/portal');
+        router.replace('/portal');
       } else {
-        router.push('/dashboard');
+        router.replace('/dashboard');
       }
     }
-  }, [isAuthenticated, user, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +43,27 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#FFF9F5]">
+        <div className="text-center">
+          <div className="h-20 w-20 rounded-2xl bg-orange-50 border border-orange-100 flex items-center justify-center overflow-hidden p-2 shadow-lg mx-auto mb-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="MMM Traders" className="w-full h-full object-contain" />
+          </div>
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading MMM Traders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated, don't render login form (redirect happens in useEffect)
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#FFF9F5]">

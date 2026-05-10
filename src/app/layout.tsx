@@ -43,7 +43,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="MMM Traders" />
         <link rel="apple-touch-icon" href="/logo.png" />
       </head>
-      <body className={`${outfit.className} bg-[#FFF9F5] text-slate-800 selection:bg-orange-500/30`}>
+      <body suppressHydrationWarning className={`${outfit.className} bg-[#FFF9F5] text-slate-800 selection:bg-orange-500/30`}>
         {children}
         <Toaster />
       </body>

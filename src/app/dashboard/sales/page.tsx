@@ -359,10 +359,10 @@ export default function SalesPage() {
                         <DropdownMenu>
                           {/* @ts-expect-error Radix UI type mismatch */}
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100">
+                            <button type="button" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 flex items-center justify-center">
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                            </Button>
+                            </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-xl shadow-xl border-slate-100">
                             <DropdownMenuItem onClick={() => openEditForm(sale)} className="cursor-pointer gap-2 text-slate-600 font-medium">
@@ -403,10 +403,10 @@ export default function SalesPage() {
                 <DropdownMenu>
                   {/* @ts-expect-error Radix UI type mismatch */}
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 bg-slate-50/80">
+                    <button type="button" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 bg-slate-50/80 flex items-center justify-center">
                       <span className="sr-only">Open menu</span>
                       <MoreHorizontal className="h-4 w-4 text-slate-500" />
-                    </Button>
+                    </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="rounded-xl shadow-xl border-slate-100">
                     <DropdownMenuItem onClick={() => openEditForm(sale)} className="cursor-pointer gap-2 text-slate-600 font-medium">

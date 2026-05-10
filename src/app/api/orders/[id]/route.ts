@@ -2,16 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/db';
 import Order from '@/models/Order';
 import Sale from '@/models/Sale';
-import PushSubscription from '@/models/PushSubscription';
-import webpush from 'web-push';
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
-const VAPID_EMAIL = process.env.VAPID_EMAIL!;
-
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_EMAIL) {
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-}
+import { notifyAdmins, notifyCustomer } from '@/lib/notifications';
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -64,45 +55,54 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
     }
 
-    // ── Push notification to customer on every status change ──────────────────
+    // Notify customer and admins on status change
     if (order.status !== previousStatus) {
-      try {
-        const customerId = (order.customer as any)?._id?.toString();
-        const customerName = (order.customer as any)?.name || 'Customer';
-        const statusMessages: Record<string, string> = {
-          'Order Accepted': `Great news! Your order for ${order.productName} has been accepted and is being processed.`,
-          'In Packing':     `Your order for ${order.productName} is now being packed and will be ready soon.`,
-          'In Transit':     `Your order for ${order.productName} is on the way! It's been dispatched.`,
-          'Delivered':      `Your order for ${order.productName} has been delivered. An invoice of ₹${order.totalAmount.toLocaleString('en-IN')} will be sent.`,
-          'Rejected':       `Unfortunately, your order for ${order.productName} has been rejected. Please contact us for details.`,
-        };
+      const customerId = (order.customer as any)?._id?.toString();
+      const customerName = (order.customer as any)?.name || 'Customer';
 
-        const body = statusMessages[order.status as string] || `Your order status is now: ${order.status}`;
-        const customerSubs = await PushSubscription.find({ userId: customerId, role: 'customer' });
-        
-        for (const sub of customerSubs) {
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-              JSON.stringify({
-                title: `📦 Order Update - MMM Traders`,
-                body,
-                icon: '/logo.png',
-                badge: '/logo.png',
-                url: '/portal/order',
-              })
-            );
-          } catch (e: any) {
-            // Clean up expired subscriptions
-            if (e?.statusCode === 410 || e?.statusCode === 404) {
-              await PushSubscription.deleteOne({ endpoint: sub.endpoint });
-            }
-          }
-        }
-      } catch (notifErr) {
-        // Non-fatal - don't fail the main request
-        console.error('[Push] Failed to notify customer:', notifErr);
+      const statusMessages: Record<string, { customer: string; admin: string }> = {
+        'Order Accepted': {
+          customer: `Great news! Your order for ${order.productName} has been accepted and is being processed.`,
+          admin: `Order for ${customerName} (${order.productName}) has been accepted.`,
+        },
+        'In Packing': {
+          customer: `Your order for ${order.productName} is now being packed and will be ready soon.`,
+          admin: `Order for ${customerName} (${order.productName}) is now in packing.`,
+        },
+        'In Transit': {
+          customer: `Your order for ${order.productName} is on the way! It's been dispatched.`,
+          admin: `Order for ${customerName} (${order.productName}) is in transit.`,
+        },
+        'Delivered': {
+          customer: `Your order for ${order.productName} has been delivered. An invoice of ₹${order.totalAmount.toLocaleString('en-IN')} will be sent.`,
+          admin: `Order for ${customerName} (${order.productName}) has been delivered.`,
+        },
+        'Rejected': {
+          customer: `Unfortunately, your order for ${order.productName} has been rejected. Please contact us for details.`,
+          admin: `Order for ${customerName} (${order.productName}) has been rejected.`,
+        },
+      };
+
+      const messages = statusMessages[order.status as string] || {
+        customer: `Your order status is now: ${order.status}`,
+        admin: `Order for ${customerName} status changed to: ${order.status}`,
+      };
+
+      // Notify customer
+      if (customerId) {
+        await notifyCustomer(customerId, {
+          title: '📦 Order Update',
+          body: messages.customer,
+          url: '/portal/orders',
+        });
       }
+
+      // Notify admins
+      await notifyAdmins({
+        title: '📦 Order Status Updated',
+        body: messages.admin,
+        url: '/dashboard/orders',
+      });
     }
 
     return NextResponse.json(order, { status: 200 });

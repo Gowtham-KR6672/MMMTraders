@@ -64,9 +64,11 @@ export default function LoginPage() {
                 <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">Email or Phone Number</Label>
                 <Input
                   id="email"
+                  name="username"
                   type="text"
                   placeholder="email@example.com or 9876543210"
                   required
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="rounded-xl border-slate-200 h-11"
@@ -77,9 +79,11 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">Password</Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   required
                   placeholder="Enter your password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="rounded-xl border-slate-200 h-11"

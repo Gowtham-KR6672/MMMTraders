@@ -236,20 +236,98 @@ export default function CustomerBillsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.06)] gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-            <FileText size={28} strokeWidth={1.5} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-800">My Bills & Invoices</h2>
-            <p className="text-sm text-slate-500 mt-1">View your purchase history and download PDF invoices</p>
-          </div>
+
+      {/* Header */}
+      <div className="flex items-center gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_8px_30px_-8px_rgba(0,0,0,0.06)]">
+        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+          <FileText size={24} strokeWidth={1.5} />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-800">My Bills & Invoices</h2>
+          <p className="text-sm text-slate-500 mt-0.5">Download your PDF invoices</p>
         </div>
       </div>
 
-      <Card className="shadow-[0_20px_50px_-12px_rgba(0,0,0,0.06)] border-slate-100 rounded-3xl overflow-hidden bg-white/90 backdrop-blur-2xl">
-        <div className="overflow-x-auto">
+      {/* Loading */}
+      {loading && (
+        <div className="flex justify-center items-center gap-2 py-16 text-slate-500">
+          <div className="w-5 h-5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+          Loading bills...
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && sales.length === 0 && (
+        <div className="text-center py-16 text-slate-400 bg-white rounded-3xl border border-slate-100">
+          No bills found.
+        </div>
+      )}
+
+      {/* ── Mobile: Card list (hidden on md+) ─────────────────────────── */}
+      {!loading && sales.length > 0 && (
+        <div className="flex flex-col gap-4 md:hidden">
+          {sales.map((sale: any) => (
+            <div
+              key={sale._id}
+              className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06)] p-4 space-y-3"
+            >
+              {/* Top row */}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">{sale.invoiceNumber}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {new Date(sale.date).toLocaleDateString('en-IN')}
+                  </p>
+                </div>
+                <Badge className={`border ${getStatusColor(sale.paymentStatus)} bg-transparent shadow-none rounded-full px-3 py-0.5 text-xs flex-shrink-0`}>
+                  {sale.paymentStatus}
+                </Badge>
+              </div>
+
+              {/* Product */}
+              <div className="bg-slate-50 rounded-xl px-3 py-2">
+                <p className="font-semibold text-slate-700 text-sm">{sale.productName}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{sale.quantity} units × ₹{sale.unitPrice}</p>
+              </div>
+
+              {/* Amounts */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-slate-50 rounded-xl px-3 py-2">
+                  <p className="text-xs text-slate-500">Total Amount</p>
+                  <p className="font-bold text-slate-800 text-sm">₹{sale.totalAmount?.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl px-3 py-2">
+                  <p className="text-xs text-slate-500">Balance Due</p>
+                  {sale.balanceAmount > 0 ? (
+                    <p className="font-bold text-red-600 text-sm">₹{sale.balanceAmount.toLocaleString('en-IN')}</p>
+                  ) : (
+                    <p className="font-bold text-emerald-600 text-sm">Paid ✓</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Download button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadInvoice(sale)}
+                disabled={downloadingId === sale._id}
+                className="w-full rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-semibold"
+              >
+                {downloadingId === sale._id ? (
+                  <><Loader2 size={14} className="mr-2 animate-spin" /> Generating PDF...</>
+                ) : (
+                  <><Download size={14} className="mr-2" /> Download PDF</>
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Desktop: Table (hidden on mobile) ─────────────────────────── */}
+      {!loading && sales.length > 0 && (
+        <Card className="hidden md:block shadow-[0_20px_50px_-12px_rgba(0,0,0,0.06)] border-slate-100 rounded-3xl overflow-hidden bg-white">
           <Table>
             <TableHeader className="bg-slate-50/80">
               <TableRow className="border-b-slate-100 hover:bg-transparent">
@@ -257,71 +335,56 @@ export default function CustomerBillsPage() {
                 <TableHead className="font-semibold text-slate-600 h-12">Date</TableHead>
                 <TableHead className="font-semibold text-slate-600 h-12">Product</TableHead>
                 <TableHead className="font-semibold text-slate-600 h-12">Status</TableHead>
-                <TableHead className="text-right font-semibold text-slate-600 h-12">Total Amount</TableHead>
-                <TableHead className="text-right font-semibold text-slate-600 h-12">Balance Due</TableHead>
+                <TableHead className="text-right font-semibold text-slate-600 h-12">Total</TableHead>
+                <TableHead className="text-right font-semibold text-slate-600 h-12">Balance</TableHead>
                 <TableHead className="text-right font-semibold text-slate-600 h-12 w-[120px]">Download</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">
-                    <div className="flex justify-center items-center gap-2">
-                      <div className="w-4 h-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
-                      Loading bills...
-                    </div>
+              {sales.map((sale: any) => (
+                <TableRow key={sale._id} className="hover:bg-indigo-50/30 transition-colors border-b-slate-100">
+                  <TableCell className="font-medium text-slate-800">{sale.invoiceNumber}</TableCell>
+                  <TableCell className="text-slate-600">{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
+                  <TableCell>
+                    <div className="font-medium text-slate-700">{sale.productName}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{sale.quantity} x ₹{sale.unitPrice}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`border ${getStatusColor(sale.paymentStatus)} bg-transparent shadow-none rounded-full px-3 py-0.5`}>
+                      {sale.paymentStatus}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-slate-800">
+                    ₹{sale.totalAmount?.toLocaleString('en-IN')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {sale.balanceAmount > 0 ? (
+                      <span className="font-bold text-red-600">₹{sale.balanceAmount.toLocaleString('en-IN')}</span>
+                    ) : (
+                      <span className="text-emerald-600 font-semibold">Paid ✓</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadInvoice(sale)}
+                      disabled={downloadingId === sale._id}
+                      className="rounded-xl border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 min-w-[80px]"
+                    >
+                      {downloadingId === sale._id ? (
+                        <><Loader2 size={14} className="mr-1 animate-spin" /> Wait</>
+                      ) : (
+                        <><Download size={14} className="mr-1" /> PDF</>
+                      )}
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ) : sales.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12 text-slate-500">No bills found.</TableCell>
-                </TableRow>
-              ) : (
-                sales.map((sale: any) => (
-                  <TableRow key={sale._id} className="hover:bg-indigo-50/30 transition-colors border-b-slate-100">
-                    <TableCell className="font-medium text-slate-800">{sale.invoiceNumber}</TableCell>
-                    <TableCell className="text-slate-600">{new Date(sale.date).toLocaleDateString('en-IN')}</TableCell>
-                    <TableCell>
-                      <div className="font-medium text-slate-700">{sale.productName}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{sale.quantity} x ₹{sale.unitPrice}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={`border ${getStatusColor(sale.paymentStatus)} bg-transparent shadow-none rounded-full px-3 py-0.5`}>
-                        {sale.paymentStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-slate-800">
-                      ₹{sale.totalAmount?.toLocaleString('en-IN')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {sale.balanceAmount > 0 ? (
-                        <span className="font-bold text-red-600">₹{sale.balanceAmount.toLocaleString('en-IN')}</span>
-                      ) : (
-                        <span className="text-emerald-600 font-semibold">Paid ✓</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadInvoice(sale)}
-                        disabled={downloadingId === sale._id}
-                        className="rounded-xl border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 min-w-[80px]"
-                      >
-                        {downloadingId === sale._id ? (
-                          <><Loader2 size={14} className="mr-1 animate-spin" /> Wait</>
-                        ) : (
-                          <><Download size={14} className="mr-1" /> PDF</>
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

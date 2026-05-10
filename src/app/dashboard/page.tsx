@@ -74,18 +74,20 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-slate-800">Sales vs Actual Income</CardTitle>
           </CardHeader>
-          <CardContent className="h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.monthlyAnalytics} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
-                <Tooltip cursor={{ fill: 'transparent' }} />
-                <Legend />
-                <Bar dataKey="Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent>
+            <div style={{ width: '100%', height: 400 }}>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={data.monthlyAnalytics} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
+                  <Tooltip cursor={{ fill: 'transparent' }} />
+                  <Legend />
+                  <Bar dataKey="Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
